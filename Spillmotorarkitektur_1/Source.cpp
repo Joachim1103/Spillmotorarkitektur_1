@@ -2,6 +2,7 @@
 #include <vector>
 #include <cmath>
 #include <GLFW/glfw3.h>
+#include <cstdlib>  // For random number generation
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -9,8 +10,8 @@
 
 // Constants
 const float BALL_RADIUS = 10.0f;
-const int WINDOW_WIDTH = 800;
-const int WINDOW_HEIGHT = 600;
+const int WINDOW_WIDTH = 1920;
+const int WINDOW_HEIGHT = 1080;
 const float GRAVITY = 0.0f;  // No gravity for this example
 const float DAMPING = 0.99f; // Frictional damping
 const int MAX_OBJECTS = 4;   // Max objects before subdivision in quadtree
@@ -32,13 +33,15 @@ class Ball {
 public:
     Vec2 position, velocity;
     float radius;
+    float angularVelocity;  // New variable for simulating spin
 
-    Ball(Vec2 pos, Vec2 vel, float r) : position(pos), velocity(vel), radius(r) {}
+    Ball(Vec2 pos, float r) : position(pos), velocity({ 0, 0 }), radius(r), angularVelocity(0.0f) {}
 
     void update(float dt) {
         position = position + velocity * dt;
-        // Apply damping to simulate friction
-        velocity = velocity * DAMPING;
+
+        // Apply angular velocity (spin) effect by modifying velocity slightly based on spin
+        velocity.x += angularVelocity * dt * 0.1f;  // Example spin effect; adjust as needed
     }
 
     void render() {
@@ -51,6 +54,7 @@ public:
         glEnd();
     }
 };
+
 
 // AABB (Axis-Aligned Bounding Box) structure to define the boundaries of a quadtree node
 struct AABB {
@@ -69,10 +73,10 @@ struct AABB {
 // Quadtree class for spatial partitioning
 class Quadtree {
 private:
-    int level;                     // Depth level of the node
-    std::vector<Ball*> objects;     // Balls contained within this node
-    AABB bounds;                   // Boundary of this node
-    Quadtree* nodes[4];             // Four child nodes (quadrants)
+    int level;
+    std::vector<Ball*> objects;
+    AABB bounds;
+    Quadtree* nodes[4];
 
     // Splits the current node into 4 subnodes
     void split() {
@@ -93,27 +97,23 @@ private:
         float verticalMidpoint = bounds.x + bounds.width / 2.0f;
         float horizontalMidpoint = bounds.y + bounds.height / 2.0f;
 
-        // Object can completely fit within the top quadrants
         bool topQuadrant = (ball.position.y - ball.radius < horizontalMidpoint && ball.position.y + ball.radius < horizontalMidpoint);
-        // Object can completely fit within the bottom quadrants
         bool bottomQuadrant = (ball.position.y - ball.radius > horizontalMidpoint);
 
-        // Object can completely fit within the left quadrants
         if (ball.position.x - ball.radius < verticalMidpoint && ball.position.x + ball.radius < verticalMidpoint) {
             if (topQuadrant) {
-                index = 1; // Top-left quadrant
+                index = 1;
             }
             else if (bottomQuadrant) {
-                index = 2; // Bottom-left quadrant
+                index = 2;
             }
         }
-        // Object can completely fit within the right quadrants
         else if (ball.position.x - ball.radius > verticalMidpoint) {
             if (topQuadrant) {
-                index = 0; // Top-right quadrant
+                index = 0;
             }
             else if (bottomQuadrant) {
-                index = 3; // Bottom-right quadrant
+                index = 3;
             }
         }
         return index;
@@ -197,14 +197,17 @@ public:
         Vec2 normal = delta.normalize();
         Vec2 relativeVelocity = a.velocity - b.velocity;
 
+        // Check if the balls are moving towards each other
         float velocityAlongNormal = relativeVelocity.x * normal.x + relativeVelocity.y * normal.y;
-        if (velocityAlongNormal > 0) return; // They are moving apart
+        if (velocityAlongNormal > 0) return;  // If they're separating, no need to resolve
 
-        float restitution = 1.0f; // Elastic collision
+        float restitution = 1.0f;  // Elastic collision
         float impulseScalar = -(1 + restitution) * velocityAlongNormal;
-        impulseScalar /= 1.0f / a.radius + 1.0f / b.radius;
+        impulseScalar /= (1.0f / a.radius) + (1.0f / b.radius);  // Adjust for mass (based on radius)
 
         Vec2 impulse = normal * impulseScalar;
+
+        // Adjust velocities using impulse
         a.velocity = a.velocity - impulse * (1.0f / a.radius);
         b.velocity = b.velocity + impulse * (1.0f / b.radius);
     }
@@ -223,23 +226,78 @@ class PhysicsEngine {
     std::vector<Ball> balls;
     Quadtree quadtree;
     AABB worldBounds;
+    bool gravityEnabled = false;  // Variable to track gravity state
 
 public:
-    PhysicsEngine() : quadtree(0, AABB{ 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT }), worldBounds({ 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT }) {}
+    PhysicsEngine() : quadtree(0, AABB{ 0, 0, 1920, 1080 }), worldBounds({ 0, 0, 1920, 1080 }) {}
 
     void addBall(const Ball& ball) {
         balls.push_back(ball);
     }
 
     void update(float dt) {
-        quadtree.clear();
-        // Insert balls into the quadtree
-        for (Ball& ball : balls) {
-            quadtree.insert(ball);
-            ball.update(dt);
+        if (glfwGetKey(glfwGetCurrentContext(), GLFW_KEY_SPACE) == GLFW_PRESS) {
+            gravityEnabled = true;  // Enable gravity when the spacebar is pressed
         }
 
-        // Check for collisions
+        quadtree.clear();
+
+        float rectWidth = 1600;
+        float rectHeight = 800;
+        float xOffset = (1920 - rectWidth) / 2;
+        float yOffset = (1080 - rectHeight) / 2;
+
+        // Function for small random velocity adjustment
+        auto randomPerturbation = []() {
+            return (static_cast<float>(rand()) / static_cast<float>(RAND_MAX) - 0.5f) * 0.2f;  // A larger random change between -0.1 and 0.1
+        };
+
+        for (Ball& ball : balls) {
+            if (gravityEnabled) {
+                ball.velocity.y -= 9.8f * dt;  // Apply gravity if enabled
+            }
+
+            quadtree.insert(ball);
+            ball.update(dt);
+
+            // Check for collisions with the left and right walls
+            if (ball.position.x - ball.radius < xOffset) {
+                ball.position.x = xOffset + ball.radius;  // Reposition
+                ball.velocity.x = -ball.velocity.x;  // Invert x-velocity
+                // Ensure the ball has non-zero y-velocity after bounce
+                if (fabs(ball.velocity.y) < 0.1f) {
+                    ball.velocity.y += randomPerturbation();  // Add a random y-component
+                }
+            }
+            else if (ball.position.x + ball.radius > xOffset + rectWidth) {
+                ball.position.x = xOffset + rectWidth - ball.radius;  // Reposition
+                ball.velocity.x = -ball.velocity.x;  // Invert x-velocity
+                // Ensure the ball has non-zero y-velocity after bounce
+                if (fabs(ball.velocity.y) < 0.1f) {
+                    ball.velocity.y += randomPerturbation();  // Add a random y-component
+                }
+            }
+
+            // Check for collisions with the top and bottom walls
+            if (ball.position.y - ball.radius < yOffset) {
+                ball.position.y = yOffset + ball.radius;  // Reposition
+                ball.velocity.y = -ball.velocity.y;  // Invert y-velocity
+                // Ensure the ball has non-zero x-velocity after bounce
+                if (fabs(ball.velocity.x) < 0.1f) {
+                    ball.velocity.x += randomPerturbation();  // Add a random x-component
+                }
+            }
+            else if (ball.position.y + ball.radius > yOffset + rectHeight) {
+                ball.position.y = yOffset + rectHeight - ball.radius;  // Reposition
+                ball.velocity.y = -ball.velocity.y;  // Invert y-velocity
+                // Ensure the ball has non-zero x-velocity after bounce
+                if (fabs(ball.velocity.x) < 0.1f) {
+                    ball.velocity.x += randomPerturbation();  // Add a random x-component
+                }
+            }
+        }
+
+        // Check for collisions between balls
         for (Ball& ball : balls) {
             std::vector<Ball*> possibleCollisions;
             quadtree.retrieve(possibleCollisions, ball);
@@ -250,21 +308,25 @@ public:
                     Collision::resolveBallBall(ball, *other);
                 }
             }
-
-            // Check for wall collisions
-            if (ball.position.x - ball.radius < 0 || ball.position.x + ball.radius > WINDOW_WIDTH) {
-                Vec2 wallNormal = { ball.position.x < 0 ? 1.0f : -1.0f, 0.0f };
-                Collision::resolveBallWall(ball, wallNormal);
-            }
-
-            if (ball.position.y - ball.radius < 0 || ball.position.y + ball.radius > WINDOW_HEIGHT) {
-                Vec2 wallNormal = { 0.0f, ball.position.y < 0 ? 1.0f : -1.0f };
-                Collision::resolveBallWall(ball, wallNormal);
-            }
         }
     }
 
     void render() {
+        // Define the size of the rectangle (centered on the screen)
+        float rectWidth = 1600;  // Set desired width
+        float rectHeight = 800;  // Set desired height
+        float xOffset = (1920 - rectWidth) / 2;
+        float yOffset = (1080 - rectHeight) / 2;
+
+        // Render the rectangle (walls) centered
+        glBegin(GL_LINE_LOOP);
+        glVertex2f(xOffset, yOffset);                           // Bottom-left
+        glVertex2f(xOffset + rectWidth, yOffset);               // Bottom-right
+        glVertex2f(xOffset + rectWidth, yOffset + rectHeight);  // Top-right
+        glVertex2f(xOffset, yOffset + rectHeight);              // Top-left
+        glEnd();
+
+        // Render the balls
         for (Ball& ball : balls) {
             ball.render();
         }
@@ -278,7 +340,7 @@ int main() {
         return -1;
     }
 
-    GLFWwindow* window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "2D Ball Collision Simulation with Quadtree", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "2D Ball Collision Simulation with Quadtree and Walls", nullptr, nullptr);
     if (!window) {
         std::cerr << "Failed to create GLFW window\n";
         glfwTerminate();
@@ -287,9 +349,25 @@ int main() {
 
     glfwMakeContextCurrent(window);
 
+    // Set up orthographic projection for a 1920x1080 window, with a centered rectangle
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, 1920, 0, 1080, -1, 1);  // Adjust for the new window size
+
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+
+    // In your main() function
     PhysicsEngine engine;
-    engine.addBall(Ball({ 400, 300 }, { 100, 0 }, BALL_RADIUS));
-    engine.addBall(Ball({ 200, 300 }, { -100, 0 }, BALL_RADIUS));
+
+    // Add multiple balls with slower starting positions and velocities
+    engine.addBall(Ball({ 400, 500 }, BALL_RADIUS));
+    engine.addBall(Ball({ 600, 300 }, BALL_RADIUS));
+    engine.addBall(Ball({ 500, 400 }, BALL_RADIUS));
+    engine.addBall(Ball({ 300, 200 }, BALL_RADIUS));
+    engine.addBall(Ball({ 800, 600 }, BALL_RADIUS));
+    engine.addBall(Ball({ 700, 500 }, BALL_RADIUS));
+    engine.addBall(Ball({ 900, 700 }, BALL_RADIUS));
 
     while (!glfwWindowShouldClose(window)) {
         glClear(GL_COLOR_BUFFER_BIT);
