@@ -1,3 +1,3 @@
 ﻿  Source.cpp
-C:\Unreal Engine 5\Github\Spillmotorarkitektur_1\Spillmotorarkitektur_1\Spillmotorarkitektur_1\Source.cpp(50,25): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+C:\Unreal Engine 5\Github\Spillmotorarkitektur_1\Spillmotorarkitektur_1\Spillmotorarkitektur_1\Source.cpp(51,25): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
   Spillmotorarkitektur_1.vcxproj -> C:\Unreal Engine 5\Github\Spillmotorarkitektur_1\Spillmotorarkitektur_1\x64\Debug\Spillmotorarkitektur_1.exe
