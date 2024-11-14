@@ -1,3 +1,6 @@
-﻿  Source.cpp
-C:\Unreal Engine 5\Github\Spillmotorarkitektur_1\Spillmotorarkitektur_1\Spillmotorarkitektur_1\Source.cpp(51,25): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+﻿  Source2.cpp
+C:\Unreal Engine 5\Github\Spillmotorarkitektur_1\Spillmotorarkitektur_1\Spillmotorarkitektur_1\Source2.cpp(117,56): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+C:\Unreal Engine 5\Github\Spillmotorarkitektur_1\Spillmotorarkitektur_1\Spillmotorarkitektur_1\Source2.cpp(192,28): warning C4244: 'argument': conversion from 'double' to 'GLfloat', possible loss of data
+C:\Unreal Engine 5\Github\Spillmotorarkitektur_1\Spillmotorarkitektur_1\Spillmotorarkitektur_1\Source2.cpp(192,20): warning C4244: 'argument': conversion from 'double' to 'GLfloat', possible loss of data
+C:\Unreal Engine 5\Github\Spillmotorarkitektur_1\Spillmotorarkitektur_1\Spillmotorarkitektur_1\Source2.cpp(215,25): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
   Spillmotorarkitektur_1.vcxproj -> C:\Unreal Engine 5\Github\Spillmotorarkitektur_1\Spillmotorarkitektur_1\x64\Debug\Spillmotorarkitektur_1.exe
