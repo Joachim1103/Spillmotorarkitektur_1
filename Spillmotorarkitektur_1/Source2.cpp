@@ -227,7 +227,7 @@ void RenderSystem(int playerId) {
     }
 }
 
-// Main function
+// Main function --- 2
 int main() {
     if (!glfwInit()) {
         std::cerr << "Failed to initialize GLFW\n";
